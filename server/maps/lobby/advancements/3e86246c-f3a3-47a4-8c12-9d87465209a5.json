@@ -1,0 +1,30 @@
+{
+  "minecraft:recipes/misc/book": {
+    "criteria": {
+      "has_paper": "2021-05-21 20:58:06 +0000"
+    },
+    "done": true
+  },
+  "minecraft:end/elytra": {
+    "criteria": {
+      "elytra": "2021-05-21 20:58:06 +0000"
+    },
+    "done": true
+  },
+  "minecraft:recipes/decorations/cartography_table": {
+    "criteria": {
+      "has_paper": "2021-05-21 20:58:06 +0000"
+    },
+    "done": true
+  },
+  "minecraft:adventure/adventuring_time": {
+    "criteria": {
+      "minecraft:bamboo_jungle": "2021-05-21 20:58:51 +0000",
+      "minecraft:beach": "2021-05-21 20:58:06 +0000",
+      "minecraft:river": "2021-05-21 20:58:16 +0000",
+      "minecraft:plains": "2021-05-21 20:58:07 +0000"
+    },
+    "done": false
+  },
+  "DataVersion": 2586
+}

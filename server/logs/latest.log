@@ -1,0 +1,62 @@
+[23:02:37] [ServerMain/INFO]: [bootstrap] Running Java 23 (OpenJDK 64-Bit Server VM 23; Arch Linux null) on Linux 6.12.1-arch1-1 (amd64)
+[23:02:37] [ServerMain/INFO]: [bootstrap] Loading Paper 1.21.4-12-master@c17ef64 (2024-12-08T22:42:46Z) for Minecraft 1.21.4
+[23:02:37] [ServerMain/INFO]: [PluginInitializerManager] Initializing plugins...
+[23:02:38] [ServerMain/INFO]: [PluginInitializerManager] Initialized 4 plugins
+[23:02:38] [ServerMain/INFO]: [PluginInitializerManager] Bukkit plugins (4):
+ - PlugManX (2.4.1), UnPure (1.0-SNAPSHOT), ViaBackwards (5.2.0), ViaVersion (5.2.0)
+[23:02:41] [ServerMain/INFO]: Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, name=PROD]
+[23:02:43] [ServerMain/INFO]: Loaded 1370 recipes
+[23:02:43] [ServerMain/INFO]: Loaded 1481 advancements
+[23:02:43] [ServerMain/INFO]: [MCTypeRegistry] Initialising converters for DataConverter...
+[23:02:43] [ServerMain/INFO]: [MCTypeRegistry] Finished initialising converters for DataConverter in 218.2ms
+[23:02:43] [Server thread/INFO]: Starting minecraft server version 1.21.4
+[23:02:43] [Server thread/INFO]: Loading properties
+[23:02:43] [Server thread/INFO]: This server is running Paper version 1.21.4-12-master@c17ef64 (2024-12-08T22:42:46Z) (Implementing API version 1.21.4-R0.1-SNAPSHOT)
+[23:02:44] [Server thread/INFO]: [spark] This server bundles the spark profiler. For more information please visit https://docs.papermc.io/paper/profiling
+[23:02:44] [Server thread/INFO]: Server Ping Player Sample Count: 12
+[23:02:44] [Server thread/INFO]: Using 4 threads for Netty based IO
+[23:02:44] [Server thread/INFO]: [MoonriseCommon] Paper is using 3 worker threads, 1 I/O threads
+[23:02:44] [Server thread/INFO]: [ChunkTaskScheduler] Chunk system is using population gen parallelism: true
+[23:02:45] [Server thread/INFO]: Default game type: SURVIVAL
+[23:02:45] [Server thread/INFO]: Generating keypair
+[23:02:45] [Server thread/INFO]: Starting Minecraft server on *:35565
+[23:02:45] [Server thread/INFO]: Using epoll channel type
+[23:02:45] [Server thread/INFO]: Paper: Using libdeflate (Linux x86_64) compression from Velocity.
+[23:02:45] [Server thread/INFO]: Paper: Using OpenSSL 3.x.x (Linux x86_64) cipher from Velocity.
+[23:02:45] [Server thread/INFO]: [ViaVersion] Loading server plugin ViaVersion v5.2.0
+[23:02:45] [Server thread/INFO]: [ViaVersion] ViaVersion 5.2.0 is now loaded. Registering protocol transformers and injecting...
+[23:02:46] [Via-Mappingloader-0/INFO]: [ViaVersion] Loading block connection mappings ...
+[23:02:46] [Via-Mappingloader-0/INFO]: [ViaVersion] Using FastUtil Long2ObjectOpenHashMap for block connections
+[23:02:46] [Server thread/INFO]: [ViaBackwards] Loading translations...
+[23:02:46] [Server thread/INFO]: [ViaBackwards] Registering protocols...
+[23:02:46] [Server thread/INFO]: [UnPure] Loading server plugin UnPure v1.0-SNAPSHOT
+[23:02:46] [Server thread/INFO]: [ViaBackwards] Loading server plugin ViaBackwards v5.2.0
+[23:02:46] [Server thread/INFO]: [PlugManX] Loading server plugin PlugManX v2.4.1
+[23:02:46] [Server thread/INFO]: Server permissions file permissions.yml is empty, ignoring it
+[23:02:46] [Server thread/INFO]: [PlugManX] Enabling PlugManX v2.4.1
+[23:02:46] [Server thread/WARN]: [PlugManX] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[23:02:46] [Server thread/WARN]: [PlugManX] It seems like you're running on paper.
+[23:02:46] [Server thread/WARN]: [PlugManX] PlugManX cannot interact with paper-plugins, yet.
+[23:02:46] [Server thread/WARN]: [PlugManX] Also, if you encounter any issues, please join my discord: https://discord.gg/GxEFhVY6ff
+[23:02:46] [Server thread/WARN]: [PlugManX] Or create an issue on GitHub: https://github.com/TheBlackEntity/PlugMan
+[23:02:46] [Server thread/WARN]: [PlugManX] ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[23:02:46] [Server thread/INFO]: Preparing level "maps/lobby"
+[23:02:47] [Server thread/INFO]: Preparing start region for dimension minecraft:overworld
+[23:02:47] [Server thread/INFO]: Preparing spawn area: 0%
+[23:02:47] [Server thread/INFO]: Time elapsed: 249 ms
+[23:02:47] [Server thread/INFO]: [ViaVersion] Enabling ViaVersion v5.2.0
+[23:02:47] [Server thread/INFO]: [ViaVersion] ViaVersion detected server version: 1.21.4 (769)
+[23:02:47] [Server thread/INFO]: [UnPure] Enabling UnPure v1.0-SNAPSHOT
+[23:02:47] [Server thread/INFO]: [ViaBackwards] Enabling ViaBackwards v5.2.0
+[23:02:47] [Server thread/INFO]: [spark] Starting background profiler...
+[23:02:47] [Server thread/INFO]: Done preparing level "maps/lobby" (0.898s)
+[23:02:47] [Server thread/INFO]: Running delayed init tasks
+[23:02:47] [Server thread/INFO]: Done (11.391s)! For help, type "help"
+[23:02:47] [Craft Scheduler Thread - 2 - ViaVersion/INFO]: [ViaVersion] Finished mapping loading, shutting down loader executor.
+[23:04:25] [Server thread/INFO]: Stopping server
+[23:04:25] [Server thread/INFO]: [PlugManX] Disabling PlugManX v2.4.1
+[23:04:25] [Server thread/INFO]: [ViaBackwards] Disabling ViaBackwards v5.2.0
+[23:04:25] [Server thread/INFO]: [UnPure] Disabling UnPure v1.0-SNAPSHOT
+[23:04:25] [Server thread/INFO]: [ViaVersion] Disabling ViaVersion v5.2.0
+[23:04:25] [Server thread/INFO]: [ViaVersion] ViaVersion has been disabled; uninjected the platform and shut down the scheduler.
+[23:04:25] [Server thread/INFO]: Saving players
