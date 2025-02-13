@@ -11,3 +11,5 @@ commands:
     usage: /gotomap
   start:
     usage: /start
+  createtemplate:
+    usage: /createtemplate

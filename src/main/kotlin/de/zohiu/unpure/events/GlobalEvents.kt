@@ -10,6 +10,8 @@ import org.bukkit.event.player.PlayerChangedWorldEvent
 class GlobalEvents : Listener {
     @EventHandler
     fun onPlayerChangeWorld(ev: PlayerChangedWorldEvent) {
+        // Return here because on this server, we only ever have one game.
+        return
         val player = ev.player
 
         Bukkit.getOnlinePlayers().forEach { op ->

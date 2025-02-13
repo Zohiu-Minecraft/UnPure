@@ -1,19 +1,16 @@
 package de.zohiu.unpure.events
 
-import de.zohiu.unpure.config.Config
 import de.zohiu.unpure.game.Game
-import org.bukkit.Bukkit
 import org.bukkit.Material
+import org.bukkit.entity.Firework
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityDamageEvent
-import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryType
-import org.bukkit.event.player.AsyncPlayerChatEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.inventory.ItemStack
 
@@ -50,6 +47,13 @@ class GameEvents(val game: Game) : Listener {
         }
 
         game.infectPlayer(victim)
+    }
+
+    @EventHandler
+    fun stopFireworkDamage(event: EntityDamageByEntityEvent) {
+        if (event.damager is Firework) {
+            event.isCancelled = true
+        }
     }
 
     @EventHandler
@@ -94,20 +98,6 @@ class GameEvents(val game: Game) : Listener {
             if (event.slotType == InventoryType.SlotType.ARMOR || event.slotType == InventoryType.SlotType.CRAFTING) {
                 event.isCancelled = true
             }
-        }
-    }
-
-    @EventHandler
-    fun onChat(event: AsyncPlayerChatEvent) {
-        if (!game.inProgress) { return }
-        if (event.player.world != game.world) { return; }
-        event.isCancelled = true
-        val player = event.player
-
-        if (game.humans.contains(player)) {
-            game.broadcast(Config.str("chat.format.human", arrayOf(player.name, event.message)))
-        } else {
-            game.broadcast(Config.str("chat.format.infected", arrayOf(player.name, event.message)))
         }
     }
 }

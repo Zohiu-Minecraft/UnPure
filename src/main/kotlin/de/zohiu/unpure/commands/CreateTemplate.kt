@@ -1,6 +1,7 @@
 package de.zohiu.unpure.commands
 
 import de.zohiu.unpure.UnPure
+import de.zohiu.unpure.UnPure.Companion.templatesPath
 import de.zohiu.unpure.chunkgenerator.VoidBiomeProvider
 import de.zohiu.unpure.chunkgenerator.VoidChunkGenerator
 import org.bukkit.Bukkit
@@ -12,53 +13,32 @@ import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
+import java.io.File
 
-class LoadMap : CommandExecutor {
+class CreateTemplate : CommandExecutor {
     override fun onCommand(sender: CommandSender, command: Command, cmd: String, args: Array<out String>): Boolean {
         if (!sender.hasPermission("unpure.admin")) {
             sender.sendMessage("You may not do that!")
             return true
         }
 
-        var mapName = "";
-
         if (args.isEmpty()) {
-            UnPure.maps.forEach { sender.sendMessage(it) }
-            return true;
+            sender.sendMessage("Please provide a name.")
+            return true
         }
 
-        run loop@{
-            UnPure.maps.forEach {
-                if (it.contains(args[0])) {
-                    mapName = it;
-                    return@loop;
-                }
-            }
-        }
+        val mapName = args[0];
 
-        if (mapName == "") {
-            sender.sendMessage("Not a valid map.");
-            return true;
-        }
-
-        sender.sendMessage("LOADED ${UnPure.templatesPath}/$mapName");
+        sender.sendMessage("CREATED ${UnPure.templatesPath}/$mapName");
 
         val worldCreator = WorldCreator("${UnPure.templatesPath}/$mapName");
         worldCreator.generator(VoidChunkGenerator())
         worldCreator.biomeProvider(VoidBiomeProvider())
         worldCreator.createWorld()
+        val world = Bukkit.getWorld("${UnPure.templatesPath}/$mapName")!!
+        world.save()
+        UnPure.maps = File("maps/$templatesPath").listFiles()?.map { it.name }?.toTypedArray() ?: arrayOf()
 
         return true;
-    }
-}
-
-class LoadMapTabComplete : TabCompleter {
-    override fun onTabComplete(p0: CommandSender, p1: Command, p2: String, p3: Array<out String>): MutableList<String>? {
-        val worlds = UnPure.maps
-        val worldarray: MutableList<String> = mutableListOf()
-        for (world in worlds) {
-            worldarray.add(world)
-        }
-        return worldarray
     }
 }

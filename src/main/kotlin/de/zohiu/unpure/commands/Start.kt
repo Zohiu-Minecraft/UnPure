@@ -13,17 +13,55 @@ import java.io.File
 import java.util.*
 
 class Start : CommandExecutor {
-    override fun onCommand(sender: CommandSender, command: Command, cmd: String, args: Array<out String>): Boolean {
-        // Generate game ID
-        val gameID = UUID.randomUUID().toString()
+    var starting = false
 
-        // Initialize game
-        val game = Game(gameID, sender.name)
-        UnPure.lobby.players.forEach {
-            game.players.add(it)
+    override fun onCommand(sender: CommandSender, command: Command, cmd: String, args: Array<out String>): Boolean {
+        if (Bukkit.getOnlinePlayers().size < 2) {
+            sender.sendMessage("There are not enough players online! (Min: 2)")
+            return true
         }
 
-        game.start()
+        if (Game.openGames.size > 0) {
+            if (sender !is Player) {
+                sender.sendMessage("A game is already in progress.")
+                return true
+            }
+            val game = Game.openGames[0]
+            sender.sendTitle("A game is in progress", "You'll be able to play next round.", 5, 100, 5)
+            sender.teleport(game.world.spawnLocation)
+            sender.gameMode = GameMode.SPECTATOR
+            return true
+        }
+
+        if (starting) {
+            sender.sendMessage("A game is already starting.")
+            return true
+        }
+
+        starting = true
+        var i = 5
+        UnPure.crimson.effectBuilder().repeat(5, 20) {
+            Bukkit.broadcastMessage("Game starting in ${i}s.")
+            i--
+        }.run {
+            if (Bukkit.getOnlinePlayers().size < 2) {
+                sender.sendMessage("Start aborted! There are not enough players online! (Min: 2)")
+                return@run
+            }
+
+            // Generate game ID
+            val gameID = UUID.randomUUID().toString()
+
+            // Initialize game
+            val game = Game(gameID, sender.name)
+            UnPure.lobby.players.forEach {
+                game.players.add(it)
+            }
+
+            game.start()
+            starting = false
+        }.start()
+
         return true
     }
 }
