@@ -1,5 +1,6 @@
 package de.zohiu.unpure.game
 
+import de.zohiu.crimson.Effect
 import de.zohiu.unpure.UnPure
 import de.zohiu.unpure.chunkgenerator.VoidBiomeProvider
 import de.zohiu.unpure.chunkgenerator.VoidChunkGenerator
@@ -25,7 +26,7 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 
 
-class Game (gameID: String, val gameCreator: String) {
+class Game (private val gameID: String, val gameCreator: String) {
     companion object {
         @JvmStatic var openGames: MutableList<Game> = mutableListOf()
     }
@@ -40,9 +41,9 @@ class Game (gameID: String, val gameCreator: String) {
     var inProgress = false;
 
     var bossbar: BossBar;
-    var world: World
     var eventListener: GameEvents
-    lateinit var gameTimer: BukkitTask;
+    lateinit var world: World
+    lateinit var gameTimer: Effect;
 
     var players: MutableList<Player> = mutableListOf()
     var humans: MutableList<Player> = mutableListOf()
@@ -59,6 +60,39 @@ class Game (gameID: String, val gameCreator: String) {
         // Clone the map
         File(mapPath).copyRecursively(File("${UnPure.mapsRoot}/$targetGamePath"), overwrite = true)
 
+        // Bossbar
+        bossbar = Bukkit.createBossBar(this.gameID, BarColor.GREEN, BarStyle.SOLID)
+        bossbar.setTitle(Config.str("game.bossbar.default"))
+
+        eventListener = GameEvents(this)
+        openGames.add(this)
+    }
+
+    fun broadcast(message: String, targets: MutableList<Player>? = null) {
+        if (targets != null) {
+            targets.forEach { it.sendMessage("${Config.gameMessagePrefix}$message") }
+        } else {
+            players.forEach { it.sendMessage("${Config.gameMessagePrefix}$message") }
+        }
+    }
+
+    fun title(title: String, subtitle: String, targets: MutableList<Player>? = null) {
+        if (targets != null) {
+            targets.forEach { it.sendTitle(title, subtitle, 5, 100, 5) }
+        } else {
+            players.forEach { it.sendTitle(title, subtitle, 5, 100, 5) }
+        }
+    }
+
+    fun actionbar(message: String, targets: MutableList<Player>? = null) {
+        if (targets != null) {
+            targets.forEach { it.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent(message)) }
+        } else {
+            players.forEach { it.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent(message)) }
+        }
+    }
+
+    fun start() {
         // Load the map
         val worldCreator = WorldCreator(targetGamePath);
         worldCreator.generator(VoidChunkGenerator())
@@ -89,37 +123,6 @@ class Game (gameID: String, val gameCreator: String) {
         world.setGameRule(GameRule.SPAWN_RADIUS, 0)
         world.setGameRule(GameRule.SPECTATORS_GENERATE_CHUNKS, false)
 
-        bossbar = Bukkit.createBossBar(gameID, BarColor.GREEN, BarStyle.SOLID)
-        bossbar.setTitle(Config.str("game.bossbar.default"))
-        eventListener = GameEvents(this)
-        openGames.add(this)
-    }
-
-    fun broadcast(message: String, targets: MutableList<Player>? = null) {
-        if (targets != null) {
-            targets.forEach { it.sendMessage("${Config.gameMessagePrefix}$message") }
-        } else {
-            players.forEach { it.sendMessage("${Config.gameMessagePrefix}$message") }
-        }
-    }
-
-    fun title(title: String, subtitle: String, targets: MutableList<Player>? = null) {
-        if (targets != null) {
-            targets.forEach { it.sendTitle(title, subtitle, 5, 100, 5) }
-        } else {
-            players.forEach { it.sendTitle(title, subtitle, 5, 100, 5) }
-        }
-    }
-
-    fun actionbar(message: String, targets: MutableList<Player>? = null) {
-        if (targets != null) {
-            targets.forEach { it.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent(message)) }
-        } else {
-            players.forEach { it.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent(message)) }
-        }
-    }
-
-    fun start() {
         // Copy players to humans and select first infected
         humans = players.toMutableList()
         humans.shuffle()
@@ -135,7 +138,7 @@ class Game (gameID: String, val gameCreator: String) {
         broadcast(Config.str("game.status.starting-in", arrayOf("5")))
 
         // Wait a bit before starting the game
-        gameTimer = object : BukkitRunnable() { override fun run() {
+        UnPure.crimson.effectBuilder().wait(100).run {
             inProgress = true
             UnPure.instance.server.pluginManager.registerEvents(eventListener, UnPure.instance)
 
@@ -152,26 +155,29 @@ class Game (gameID: String, val gameCreator: String) {
                 loc.yaw = -90.0f
                 it.teleport(loc)
                 it.gameMode = GameMode.ADVENTURE
+                it.inventory.clear()
+                it.removePotionEffect(PotionEffectType.GLOWING)
             }
             startGracePeriod()
-        }}.runTaskLater(UnPure.instance, 100)
+        }.start()
     }
 
     fun stop() {
         if (!inProgress) { return }
-        heartbeatTask?.let { UnPure.instance.getServer().getScheduler().cancelTask(it) };
+        heartbeatTask?.abort()
         inProgress = false
         players.forEach {
             bossbar.removePlayer(it)
             resetPlayer(it, skipTeleport = true)
         }
         bossbar.removeAll()
-        gameTimer.cancel()
+        gameTimer.abort()
         HandlerList.unregisterAll(eventListener)
         openGames.remove(this)
+        GameData.database.commitCache()
 
         // Wait a bit before ending the game
-        gameTimer = object : BukkitRunnable() { override fun run() {
+        UnPure.crimson.effectBuilder().wait(100).run {
             UnPure.waitingarea.players.forEach {
                 resetPlayer(it, skipTeleport = true)
                 val loc = UnPure.lobby.spawnLocation
@@ -192,19 +198,22 @@ class Game (gameID: String, val gameCreator: String) {
             }
             Bukkit.unloadWorld(world, false)
             File("${UnPure.mapsRoot}/$targetGamePath").deleteRecursively()
-        }}.runTaskLater(UnPure.instance, 100)
+        }.start()
     }
 
     fun infectPlayer(player: Player, killer: Player? = null) {
         if (infected.contains(player)) {
             broadcast(Config.str("game.player.died", arrayOf(player.name)))
             player.teleport(world.spawnLocation)
+            GameData.addOneToTable(player, GameData.tableDeaths)
             return
         }
         if (!humans.contains(player)) { return }  // Just to be safe.
+        GameData.addOneToTable(player, GameData.tableDeaths)
 
         if (killer != null) {
             broadcast(Config.str("game.player.infected", arrayOf(player.name, killer.name)))
+            GameData.addOneToTable(killer, GameData.tableKills)
         } else {
             broadcast(Config.str("game.player.self-infected", arrayOf(player.name)))
         }
@@ -215,8 +224,10 @@ class Game (gameID: String, val gameCreator: String) {
         // Game ends when no humans left
         if (humans.isEmpty()) {
             player.gameMode = GameMode.SPECTATOR
-            finalDeathEffect(player, player.location)
+            if (killer is Player) Cosmetics.winEffect(killer, player.location)
+            Cosmetics.deathEffect(player, player.location)
             broadcast(Config.str("game.status.end.humans-dead"))
+            infected.forEach { GameData.addOneToTable(it, GameData.tableInfectedWins) }
             stop()
         } else {
             initInfectedState(player)
@@ -244,29 +255,27 @@ class Game (gameID: String, val gameCreator: String) {
     }
 
     private fun startGracePeriod() {
-        gameTimer = object : BukkitRunnable() { override fun run() {
+        gameTimer = UnPure.crimson.effectBuilder().repeatUntil({ elapsedTimeTicks > graceTimeSeconds * 20 }, timerTickDelay) {
             val remaining = graceTimeSeconds - elapsedTimeSeconds
             bossbar.setTitle(Config.str("game.bossbar.grace", arrayOf(remaining.toString())))
-            bossbar.progress = 1 - elapsedTimeTicks / (graceTimeSeconds * 20.0)
-
+            bossbar.progress = Math.max(0.0, 1 - elapsedTimeTicks / (graceTimeSeconds * 20.0))
             gameTick()
-            if (elapsedTimeTicks > graceTimeSeconds * 20) {
-                infected.forEach { initInfectedState(it, startInSpectator = false) }
-                infected.forEach {
-                    it.teleport(world.spawnLocation)
-                    it.gameMode = GameMode.SURVIVAL
-                }
-                broadcast(Config.str("game.status.grace-over"))
-                bossbar.color = BarColor.YELLOW
-                startGamePeriod()
-                this.cancel()
+        }.run {
+            infected.forEach { initInfectedState(it, startInSpectator = false) }
+            infected.forEach {
+                it.teleport(world.spawnLocation)
+                it.gameMode = GameMode.SURVIVAL
             }
-        }}.runTaskTimer(UnPure.instance, 0, timerTickDelay.toLong())
+            broadcast(Config.str("game.status.grace-over"))
+            bossbar.color = BarColor.YELLOW
+            startGamePeriod()
+        }.start()
     }
 
-    var humsent = false
     private fun startGamePeriod() {
-        gameTimer = object : BukkitRunnable() { override fun run() {
+        var humsent = false
+        gameTimer.abort()  // Make sure that the grace period is actually stopped for sure
+        gameTimer = UnPure.crimson.effectBuilder().repeatUntil({ elapsedTimeTicks > (gameTimeSeconds * 20) + (graceTimeSeconds * 20) }, timerTickDelay) {
             val remaining = gameTimeSeconds - elapsedTimeSeconds + graceTimeSeconds
             if (remaining == lastMinuteEffectsAtSecond) {
                 bossbar.color = BarColor.RED
@@ -282,12 +291,13 @@ class Game (gameID: String, val gameCreator: String) {
             bossbar.progress = 1 - (elapsedTimeTicks - (graceTimeSeconds * 20.0)) / (gameTimeSeconds * 20.0)
 
             gameTick()
-            if (elapsedTimeTicks > (gameTimeSeconds * 20) + (graceTimeSeconds * 20)) {
-                broadcast(Config.str("game.status.end.timeout"))
-                stop()
-                this.cancel()
-            }
-        }}.runTaskTimer(UnPure.instance, 0, timerTickDelay.toLong())
+        }.run {
+            broadcast(Config.str("game.status.end.timeout"))
+            humans.forEach { GameData.addOneToTable(it, GameData.tableHumanWins) }
+            infected.forEach { GameData.addOneToTable(it, GameData.tableInfectedLosses) }
+            stop()
+        }.start()
+
         heartbeatTask = startHeartbeatTask()
     }
 
@@ -298,6 +308,7 @@ class Game (gameID: String, val gameCreator: String) {
 
         elapsedTimeTicks += timerTickDelay
         elapsedTimeSeconds = elapsedTimeTicks / 20
+        infected.forEach { Cosmetics.trail(it) }
     }
 
     private fun resetPlayer(player: Player, skipTeleport: Boolean = false) {
@@ -327,83 +338,77 @@ class Game (gameID: String, val gameCreator: String) {
         player.addPotionEffect(PotionEffect(PotionEffectType.GLOWING, PotionEffect.INFINITE_DURATION, 0))
         player.inventory.addItem(ItemStack(Material.WOODEN_AXE))
         player.inventory.addItem(ItemStack(Material.STONE_PICKAXE))
-        player.inventory.setItem(EquipmentSlot.FEET, ItemStack(Material.LEATHER_BOOTS))
-        player.inventory.setItem(EquipmentSlot.LEGS, ItemStack(Material.LEATHER_LEGGINGS))
-        player.inventory.setItem(EquipmentSlot.CHEST, ItemStack(Material.LEATHER_CHESTPLATE))
-        player.inventory.setItem(EquipmentSlot.HEAD, ItemStack(Material.ZOMBIE_HEAD))
+        Cosmetics.infectedOutfit(player)
         if (startInSpectator) { player.gameMode = GameMode.SPECTATOR }
     }
 
-    var heartbeatTask: Int? = null
-    fun startHeartbeatTask(): Int {
-        return UnPure.instance.getServer().getScheduler().scheduleSyncRepeatingTask(
-            UnPure.instance,
-            {
-                // Check distance to all infected
-                for (human in humans) {
-                    val max_distance = 16.0
-                    var current_distance = max_distance
-                    for (infected in infected) {
-                        val distance = human.location.distance(infected.location)
-                        if (distance < current_distance) {
-                            current_distance = distance
-                        }
+    private var heartbeatTask: Effect? = null
+    private fun startHeartbeatTask(): Effect {
+        return UnPure.crimson.effectBuilder().repeatForever(20) {
+            // Check distance to all infected
+            for (human in humans) {
+                val max_distance = 16.0
+                var current_distance = max_distance
+                for (infected in infected) {
+                    val distance = human.location.distance(infected.location)
+                    if (distance < current_distance) {
+                        current_distance = distance
                     }
+                }
 
-                    if (current_distance < max_distance) {
-                        val wb_size = 256
+                if (current_distance < max_distance) {
+                    val wb_size = 256
 
-                        val distance_percent = 1 - (current_distance / max_distance)
-                        val beats_per_second = 1 + (2 * distance_percent)
+                    val distance_percent = 1 - (current_distance / max_distance)
+                    val beats_per_second = 1 + (2 * distance_percent)
 
-                        val tick_delay_between_beats = (20 / beats_per_second).toLong()
+                    val tick_delay_between_beats = (20 / beats_per_second).toLong()
 
-                        val tick_beat_speed = 2 + (6 * (1 - distance_percent)).toLong()
+                    val tick_beat_speed = 2 + (6 * (1 - distance_percent)).toLong()
 
-                        val tint: WorldBorder = UnPure.instance.getServer().createWorldBorder()
-                        tint.center = human.location
-                        tint.size = wb_size.toDouble()
-                        tint.warningDistance = (wb_size / 2) + ((distance_percent * (wb_size / 2)).toInt()) + 1
-                        human.worldBorder = tint
-                        human.playSound(human, "minecraft:block.note_block.basedrum", SoundCategory.MASTER, 1f, 0.7f)
+                    val tint: WorldBorder = UnPure.instance.getServer().createWorldBorder()
+                    tint.center = human.location
+                    tint.size = wb_size.toDouble()
+                    tint.warningDistance = (wb_size / 2) + ((distance_percent * (wb_size / 2)).toInt()) + 1
+                    human.worldBorder = tint
+                    human.playSound(human, "minecraft:block.note_block.basedrum", SoundCategory.MASTER, 1f, 0.7f)
 
-                        for (i in 0..<Math.round(beats_per_second)) {
+                    for (i in 0..<Math.round(beats_per_second)) {
+                        Bukkit.getScheduler().runTaskLater(UnPure.instance, Runnable {
+                            val tint1: WorldBorder = UnPure.instance.getServer().createWorldBorder()
+                            tint1.center = human.location
+                            tint1.size = wb_size.toDouble()
+                            tint1.warningDistance = (wb_size / 2) + ((distance_percent * (wb_size / 2)).toInt()) + 1
+                            human.worldBorder = tint1
+                            human.playSound(
+                                human,
+                                "minecraft:block.note_block.basedrum",
+                                SoundCategory.MASTER,
+                                1f,
+                                0.7f
+                            )
                             Bukkit.getScheduler().runTaskLater(UnPure.instance, Runnable {
-                                val tint1: WorldBorder = UnPure.instance.getServer().createWorldBorder()
-                                tint1.center = human.location
-                                tint1.size = wb_size.toDouble()
-                                tint1.warningDistance = (wb_size / 2) + ((distance_percent * (wb_size / 2)).toInt()) + 1
+                                tint1.warningDistance = 0
                                 human.worldBorder = tint1
                                 human.playSound(
                                     human,
                                     "minecraft:block.note_block.basedrum",
                                     SoundCategory.MASTER,
                                     1f,
-                                    0.7f
+                                    1f
                                 )
-                                Bukkit.getScheduler().runTaskLater(UnPure.instance, Runnable {
-                                    tint1.warningDistance = 0
-                                    human.worldBorder = tint1
-                                    human.playSound(
-                                        human,
-                                        "minecraft:block.note_block.basedrum",
-                                        SoundCategory.MASTER,
-                                        1f,
-                                        1f
-                                    )
-                                }, tick_beat_speed)
-                            }, tick_delay_between_beats * i)
-                        }
-                    } else {
-                        val notint: WorldBorder = UnPure.instance.getServer().createWorldBorder()
-                        notint.center = world.spawnLocation
-                        notint.size = 1024.0
-                        notint.warningDistance = 0
-
-                        human.worldBorder = notint
+                            }, tick_beat_speed)
+                        }, tick_delay_between_beats * i)
                     }
+                } else {
+                    val notint: WorldBorder = UnPure.instance.getServer().createWorldBorder()
+                    notint.center = world.spawnLocation
+                    notint.size = 1024.0
+                    notint.warningDistance = 0
+
+                    human.worldBorder = notint
                 }
-            }, 0L, 20L
-        )
+            }
+        }
     }
 }

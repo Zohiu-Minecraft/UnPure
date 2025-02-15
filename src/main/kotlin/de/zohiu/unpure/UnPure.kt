@@ -1,5 +1,6 @@
 package de.zohiu.unpure
 
+import de.zohiu.crimson.CacheLevel
 import de.zohiu.crimson.Crimson
 import de.zohiu.unpure.chunkgenerator.VoidBiomeProvider
 import de.zohiu.unpure.chunkgenerator.VoidChunkGenerator

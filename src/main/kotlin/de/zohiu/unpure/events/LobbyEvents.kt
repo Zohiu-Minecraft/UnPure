@@ -14,6 +14,7 @@ import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.player.AsyncPlayerChatEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerJoinEvent
+import org.bukkit.potion.PotionEffectType
 
 class LobbyEvents : Listener {
     init {
@@ -21,8 +22,17 @@ class LobbyEvents : Listener {
         UnPure.crimson.effectBuilder().repeatForever(10) {
             Bukkit.getOnlinePlayers().forEach {
                 if (it.world == UnPure.waitingarea) {
-                    if (it.location.y < 69) {
+                    if (it.location.y < 68) {
                         val loc = UnPure.waitingarea.spawnLocation
+                        loc.add(0.5, 0.0, 0.5)
+                        loc.yaw = -90.0f
+                        it.teleport(loc)
+                    }
+                } else if (it.world == UnPure.lobby) {
+                    if (it.gameMode != GameMode.ADVENTURE && it.gameMode != GameMode.CREATIVE) {
+                        it.gameMode = GameMode.ADVENTURE
+                        it.removePotionEffect(PotionEffectType.GLOWING)
+                        val loc = UnPure.lobby.spawnLocation
                         loc.add(0.5, 0.0, 0.5)
                         loc.yaw = -90.0f
                         it.teleport(loc)

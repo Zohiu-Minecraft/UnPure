@@ -1,6 +1,7 @@
 package de.zohiu.unpure.events
 
 import de.zohiu.unpure.game.Game
+import de.zohiu.unpure.game.GameData
 import org.bukkit.Material
 import org.bukkit.entity.Firework
 import org.bukkit.entity.Player
@@ -69,6 +70,7 @@ class GameEvents(val game: Game) : Listener {
     fun onBlockBreak(event: BlockBreakEvent) {
         if (!game.inProgress) { return }
         if (event.player.world != game.world) { return; }
+        GameData.addOneToTable(event.player, GameData.tableBlocksMined)
         val block_type = event.block.type
 
         if (block_type == Material.WARPED_STEM) {

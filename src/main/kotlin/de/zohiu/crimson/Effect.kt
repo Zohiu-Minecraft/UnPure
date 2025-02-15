@@ -63,13 +63,13 @@ class Effect(val crimson: Crimson, val plugin: JavaPlugin) {
         return this
     }
 
-    fun start() {
+    fun start(): Effect {
         if (!crimson.runningEffects.contains(this)) {
             crimson.runningEffects.add(this)
         }
 
         while (actionQueue.size > 0) {
-            if (abort) return
+            if (abort) return this
             val currentAction = actionQueue.pollFirst() // ?: break
 
             if (currentAction.type == ActionType.DELAY) {
@@ -98,7 +98,7 @@ class Effect(val crimson: Crimson, val plugin: JavaPlugin) {
                     }
                     currentAction.task()
                 }}.runTaskTimer(plugin, timeOffsetTicks, currentAction.delay.toLong()))
-                return
+                return this
             }
 
             // Repeating forever clears the entire action queue because there cannot
@@ -109,11 +109,12 @@ class Effect(val crimson: Crimson, val plugin: JavaPlugin) {
                     if (abort) this.cancel()
                     currentAction.task()
                 }}.runTaskTimer(plugin, timeOffsetTicks, currentAction.delay.toLong()))
-                return
+                return this
             }
 
             tasks.add(bakeTask(currentAction.task, timeOffsetTicks))
         }
+        return this
     }
 
     fun abort() {

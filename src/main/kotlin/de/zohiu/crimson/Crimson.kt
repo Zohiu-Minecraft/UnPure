@@ -22,8 +22,8 @@ class Crimson(val plugin: JavaPlugin) {
         return Config(this, name)
     }
 
-    fun getDatabase(name: String): Database {
-        return Database(this, name)
+    fun getDatabase(name: String, cacheLevel: CacheLevel): Database {
+        return Database(this, name, cacheLevel)
     }
 
     fun effectBuilder() : Effect {

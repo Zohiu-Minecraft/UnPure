@@ -40,6 +40,8 @@ class Start : CommandExecutor {
 
         starting = true
         var i = 5
+        var game: Game? = null
+
         UnPure.crimson.effectBuilder().repeat(5, 20) {
             Bukkit.broadcastMessage("Game starting in ${i}s.")
             i--
@@ -53,12 +55,13 @@ class Start : CommandExecutor {
             val gameID = UUID.randomUUID().toString()
 
             // Initialize game
-            val game = Game(gameID, sender.name)
-            UnPure.lobby.players.forEach {
-                game.players.add(it)
-            }
+            game = Game(gameID, sender.name)
 
-            game.start()
+        }.wait(20).run {
+            UnPure.lobby.players.forEach {
+                game!!.players.add(it)
+            }
+            game!!.start()
             starting = false
         }.start()
 

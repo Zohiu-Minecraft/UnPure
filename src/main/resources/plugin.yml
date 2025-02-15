@@ -1,5 +1,7 @@
 name: UnPure
-version: '1.0-SNAPSHOT'
+author: Zohiu
+description: Infected vs. Humans
+version: '1.0'
 main: de.zohiu.unpure.UnPure
 api-version: '1.21'
 commands:
