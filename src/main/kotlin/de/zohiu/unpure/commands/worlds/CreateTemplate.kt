@@ -1,18 +1,14 @@
-package de.zohiu.unpure.commands
+package de.zohiu.unpure.commands.worlds
 
 import de.zohiu.unpure.UnPure
 import de.zohiu.unpure.UnPure.Companion.templatesPath
 import de.zohiu.unpure.chunkgenerator.VoidBiomeProvider
 import de.zohiu.unpure.chunkgenerator.VoidChunkGenerator
 import org.bukkit.Bukkit
-import org.bukkit.Location
-import org.bukkit.World
 import org.bukkit.WorldCreator
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
-import org.bukkit.command.TabCompleter
-import org.bukkit.entity.Player
 import java.io.File
 
 class CreateTemplate : CommandExecutor {

@@ -22,8 +22,9 @@ class Crimson(val plugin: JavaPlugin) {
         return Config(this, name)
     }
 
-    fun getDatabase(name: String, cacheLevel: CacheLevel): Database {
-        return Database(this, name, cacheLevel)
+    fun getDatabase(name: String, cacheLevel: CacheLevel, maxCacheSize: Int = 500, period: Int? = null,
+                    periodCondition: () -> Boolean = { true }): Database {
+        return Database(this, name, cacheLevel, maxCacheSize, period, periodCondition)
     }
 
     fun effectBuilder() : Effect {

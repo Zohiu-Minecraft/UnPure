@@ -1,5 +1,6 @@
 package de.zohiu.crimson
 
+import org.bukkit.Bukkit
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
@@ -8,22 +9,21 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.PreparedStatement
 import java.sql.SQLException
-import java.sql.Statement
-import java.time.Instant
 
 // PERIODIC does not work yet!
-enum class CacheLevel {
+enum class CacheLevel() {
     NONE, GET, PERIODIC, FULL
 }
 
-class Database(val crimson: Crimson, val name: String, val cacheLevel: CacheLevel) : AutoCloseable {
+class Database(val crimson: Crimson, val name: String, cacheLevel: CacheLevel, val maxCacheSize: Int,
+               period: Int?, private val periodCondition: () -> Boolean) : AutoCloseable {
     lateinit var connection: Connection
     val getCache: HashMap<String, LinkedHashMap<String, Any>> = HashMap()
     val writeCache: HashMap<String, MutableList<PreparedStatement>> = HashMap()
-    val maxCacheSize: Int = 100
 
     var getCached = false
     var writeCached = false
+    private var periodicEffect: Effect? = null
 
     init {
         val url = "jdbc:sqlite:${crimson.dataPath}${name}.db"
@@ -39,18 +39,28 @@ class Database(val crimson: Crimson, val name: String, val cacheLevel: CacheLeve
             println(e.message)
         }
 
-        if (cacheLevel == CacheLevel.FULL
-            || cacheLevel == CacheLevel.PERIODIC) {
-            writeCached = true
-            getCached = true
-        }
-
-        if (cacheLevel == CacheLevel.GET) {
-            getCached = true
+        when(cacheLevel) {
+            CacheLevel.NONE -> {}
+            CacheLevel.GET -> {
+                getCached = true
+            }
+            CacheLevel.PERIODIC -> {
+                writeCached = true
+                getCached = true
+                if (period == null) throw RuntimeException("No period specified.")
+                periodicEffect = crimson.effectBuilder().repeatForever(period) {
+                    if (periodCondition.invoke()) commitCache()
+                }.start()
+            }
+            CacheLevel.FULL -> {
+                writeCached = true
+                getCached = true
+            }
         }
     }
 
     override fun close() {
+        periodicEffect?.abort()
         commitCache()
         connection.close()
         getCache.clear()
@@ -98,6 +108,7 @@ class Database(val crimson: Crimson, val name: String, val cacheLevel: CacheLeve
 class Table(val database: Database, private val internalName: String) {
     fun set(key: String, value: Any) {
         if (database.getCached) database.getCache[internalName]!![key] = value
+
         ByteArrayOutputStream().use { byteStream ->
             ObjectOutputStream(byteStream).use { objectStream ->
                 objectStream.writeObject(value)

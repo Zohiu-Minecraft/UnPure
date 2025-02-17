@@ -4,8 +4,12 @@ import de.zohiu.crimson.Effect
 import de.zohiu.unpure.UnPure
 import de.zohiu.unpure.chunkgenerator.VoidBiomeProvider
 import de.zohiu.unpure.chunkgenerator.VoidChunkGenerator
-import de.zohiu.unpure.config.Config
+import de.zohiu.unpure.config.Messages
 import de.zohiu.unpure.events.GameEvents
+import de.zohiu.unpure.data.CosmeticsData
+import de.zohiu.unpure.data.DataOperations
+import de.zohiu.unpure.data.StatisticsData
+import me.neznamy.tab.api.TabAPI
 import net.md_5.bungee.api.ChatMessageType
 import net.md_5.bungee.api.chat.TextComponent
 import org.bukkit.*
@@ -14,21 +18,35 @@ import org.bukkit.boss.BarStyle
 import org.bukkit.boss.BossBar
 import org.bukkit.entity.Player
 import org.bukkit.event.HandlerList
-import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemStack
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
-import org.bukkit.scheduler.BukkitRunnable
-import org.bukkit.scheduler.BukkitTask
 import java.io.File
-import java.text.DecimalFormat
 import java.util.*
-import java.util.concurrent.TimeUnit
 
 
-class Game (private val gameID: String, val gameCreator: String) {
+class Game (private val gameID: String, val host: Player) {
     companion object {
         @JvmStatic var openGames: MutableList<Game> = mutableListOf()
+
+        fun createGame(host: Player): Game {
+            return Game(UUID.randomUUID().toString(), host)
+        }
+
+        fun resetPlayer(player: Player) {
+            player.gameMode = GameMode.ADVENTURE
+            player.inventory.clear()
+            player.health = 20.0
+            player.saturation = 20.0f
+            player.foodLevel = 20
+            player.exp = 0.0f
+            player.removePotionEffect(PotionEffectType.GLOWING)
+            player.removePotionEffect(PotionEffectType.ABSORPTION)
+
+            TabAPI.getInstance().getPlayer(player.uniqueId)?.let { TabAPI.getInstance().tabListFormatManager?.setPrefix(it, null) }
+            TabAPI.getInstance().getPlayer(player.uniqueId)?.let { TabAPI.getInstance().nameTagManager?.setPrefix(it, null) }
+            TabAPI.getInstance().getPlayer(player.uniqueId)?.setTemporaryGroup(null)
+        }
     }
 
     val timerTickDelay = 5
@@ -38,16 +56,20 @@ class Game (private val gameID: String, val gameCreator: String) {
     var elapsedTimeSeconds = 0
     var elapsedTimeTicks = 0
 
+    var starting = false
     var inProgress = false;
+    var lastMinute = false;
 
     var bossbar: BossBar;
     var eventListener: GameEvents
-    lateinit var world: World
+    var world: World
     lateinit var gameTimer: Effect;
 
     var players: MutableList<Player> = mutableListOf()
+    var spectators: MutableList<Player> = mutableListOf()
     var humans: MutableList<Player> = mutableListOf()
     var infected: MutableList<Player> = mutableListOf()
+    var lastHuman: Player? = null
 
     var targetGamePath: String
 
@@ -57,50 +79,17 @@ class Game (private val gameID: String, val gameCreator: String) {
         val mapPath = "${UnPure.mapsRoot}/${UnPure.templatesPath}/$mapName"
         targetGamePath = "${UnPure.gamesPath}/$gameID"
 
-        // Clone the map
+        // Clone the maps
         File(mapPath).copyRecursively(File("${UnPure.mapsRoot}/$targetGamePath"), overwrite = true)
 
-        // Bossbar
-        bossbar = Bukkit.createBossBar(this.gameID, BarColor.GREEN, BarStyle.SOLID)
-        bossbar.setTitle(Config.str("game.bossbar.default"))
-
-        eventListener = GameEvents(this)
-        openGames.add(this)
-    }
-
-    fun broadcast(message: String, targets: MutableList<Player>? = null) {
-        if (targets != null) {
-            targets.forEach { it.sendMessage("${Config.gameMessagePrefix}$message") }
-        } else {
-            players.forEach { it.sendMessage("${Config.gameMessagePrefix}$message") }
-        }
-    }
-
-    fun title(title: String, subtitle: String, targets: MutableList<Player>? = null) {
-        if (targets != null) {
-            targets.forEach { it.sendTitle(title, subtitle, 5, 100, 5) }
-        } else {
-            players.forEach { it.sendTitle(title, subtitle, 5, 100, 5) }
-        }
-    }
-
-    fun actionbar(message: String, targets: MutableList<Player>? = null) {
-        if (targets != null) {
-            targets.forEach { it.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent(message)) }
-        } else {
-            players.forEach { it.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent(message)) }
-        }
-    }
-
-    fun start() {
         // Load the map
         val worldCreator = WorldCreator(targetGamePath);
         worldCreator.generator(VoidChunkGenerator())
         worldCreator.biomeProvider(VoidBiomeProvider())
         worldCreator.createWorld()
-
-        // Initialize the map
         world = Bukkit.getWorld(targetGamePath)!!
+
+        // Initialize the world
         world.setGameRule(GameRule.DO_MOB_SPAWNING, false)
         world.setGameRule(GameRule.KEEP_INVENTORY, true)
         world.setGameRule(GameRule.ANNOUNCE_ADVANCEMENTS, false)
@@ -123,179 +112,275 @@ class Game (private val gameID: String, val gameCreator: String) {
         world.setGameRule(GameRule.SPAWN_RADIUS, 0)
         world.setGameRule(GameRule.SPECTATORS_GENERATE_CHUNKS, false)
 
-        // Copy players to humans and select first infected
-        humans = players.toMutableList()
-        humans.shuffle()
-        infected.add(humans.removeLast())
+        // Bossbar
+        bossbar = Bukkit.createBossBar(this.gameID, BarColor.GREEN, BarStyle.SOLID)
+        bossbar.setTitle(Messages.str("game.bossbar.default"))
 
-        players.forEach { bossbar.addPlayer(it) }
-        humans.forEach { initHumanState(it, startInSpectator = true) }
-        infected.forEach { initInfectedState(it, startInSpectator = true) }
+        eventListener = GameEvents(this)
+        openGames.add(this)
+    }
 
-        title(Config.str("game.title.infected"), Config.str("game.subtitle.infected"), infected)
-        title(Config.str("game.title.human"), Config.str("game.subtitle.human"), humans)
+    fun broadcast(message: String, targets: MutableList<Player>) {
+        targets.forEach { it.sendMessage("${Messages.gameMessagePrefix}$message") }
+    }
 
-        broadcast(Config.str("game.status.starting-in", arrayOf("5")))
+    fun rawBroadcast(message: String, targets: MutableList<Player>) {
+        targets.forEach { it.sendMessage(message) }
+    }
 
-        // Wait a bit before starting the game
-        UnPure.crimson.effectBuilder().wait(100).run {
+    fun title(title: String, subtitle: String, targets: MutableList<Player>) {
+        targets.forEach { it.sendTitle(title, subtitle, 5, 100, 5) }
+    }
+
+    fun actionbar(message: String, targets: MutableList<Player>) {
+        targets.forEach { it.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent(message)) }
+    }
+
+    fun start() {
+        if (starting || inProgress) return
+        starting = true
+
+        // game countdown
+        var i = 5
+        UnPure.crimson.effectBuilder().repeat(5, 20) {
+            rawBroadcast("${host.name}'s game is starting in ${i}s", players)
+            i--
+        }.run {
+            starting = false
+            if (players.size < 2) {
+                rawBroadcast("Start aborted! There are not enough players online! (Min: 2)", players)
+                return@run
+            }
             inProgress = true
-            UnPure.instance.server.pluginManager.registerEvents(eventListener, UnPure.instance)
 
-            broadcast(Config.str("game.status.started"))
+            // Hide game players for everyone else
+            // See GameEvents for handling new player joins
+            players.forEach { gamePlayer ->
+                Bukkit.getOnlinePlayers().forEach { player ->
+                    if (players.contains(player)) {
+                        player.showPlayer(UnPure.instance, gamePlayer)
+                    }
+                    else {
+                        player.hidePlayer(UnPure.instance, gamePlayer)
+                    }
+                }
+            }
 
-            bossbar.color = BarColor.GREEN
+            // Copy players to humans and select first infected
+            humans = players.toMutableList()
+            humans.shuffle()
+            infected.add(humans.removeLast())
+
+            // init players
+            players.forEach { bossbar.addPlayer(it) }
             humans.forEach {
-                it.teleport(world.spawnLocation)
-                it.gameMode = GameMode.SURVIVAL
+                initHumanState(it);
+                it.gameMode = GameMode.SPECTATOR
             }
             infected.forEach {
-                val loc = UnPure.waitingarea.spawnLocation
-                loc.add(0.5, 0.0, 0.5)
-                loc.yaw = -90.0f
-                it.teleport(loc)
-                it.gameMode = GameMode.ADVENTURE
-                it.inventory.clear()
-                it.removePotionEffect(PotionEffectType.GLOWING)
+                initInfectedState(it);
+                it.gameMode = GameMode.SPECTATOR
             }
-            startGracePeriod()
+
+            title(Messages.str("game.title.infected"), Messages.str("game.subtitle.infected"), infected)
+            title(Messages.str("game.title.human"), Messages.str("game.subtitle.human"), humans)
+
+            broadcast(Messages.str("game.status.starting-in", arrayOf("5")), players)
+
+            // Wait a bit before starting the game
+            UnPure.crimson.effectBuilder().wait(100).run {
+                UnPure.instance.server.pluginManager.registerEvents(eventListener, UnPure.instance)
+
+                broadcast(Messages.str("game.status.started"), players)
+
+                bossbar.color = BarColor.GREEN
+                humans.forEach {
+                    it.teleport(world.spawnLocation.add(0.5, 0.0, 0.5))
+                    it.gameMode = GameMode.SURVIVAL
+                }
+                infected.forEach {
+                    it.teleport(UnPure.waitingArea.spawnLocation.add(0.5, 0.0, 0.5))
+                    it.gameMode = GameMode.ADVENTURE
+                }
+                gracePeriod()
+            }.start()
         }.start()
     }
 
     fun stop() {
         if (!inProgress) { return }
-        heartbeatTask?.abort()
         inProgress = false
+        heartbeatTask?.abort()
         players.forEach {
             bossbar.removePlayer(it)
-            resetPlayer(it, skipTeleport = true)
+            if (it != lastHuman) resetPlayer(it)
         }
         bossbar.removeAll()
         gameTimer.abort()
-        HandlerList.unregisterAll(eventListener)
-        openGames.remove(this)
-        GameData.database.commitCache()
+        StatisticsData.database.commitCache()
 
         // Wait a bit before ending the game
-        UnPure.crimson.effectBuilder().wait(100).run {
-            UnPure.waitingarea.players.forEach {
-                resetPlayer(it, skipTeleport = true)
-                val loc = UnPure.lobby.spawnLocation
-                loc.add(0.5, 0.0, 0.5)
-                loc.yaw = -90.0f
-                it.teleport(loc)
-                it.inventory.clear()
-                it.gameMode = GameMode.ADVENTURE
+        UnPure.crimson.effectBuilder().wait(200).run {
+            val pClone = players.toList()
+            players.clear()
+            UnPure.waitingArea.players.forEach {
+                if (!pClone.contains(it)) return@forEach
+                resetPlayer(it)
+                UnPure.teleportToLobby(it)
             }
             world.players.forEach {
-                resetPlayer(it, skipTeleport = true)
-                val loc = UnPure.lobby.spawnLocation
-                loc.add(0.5, 0.0, 0.5)
-                loc.yaw = -90.0f
-                it.teleport(loc)
-                it.inventory.clear()
-                it.gameMode = GameMode.ADVENTURE
+                resetPlayer(it)
+                UnPure.teleportToLobby(it)
             }
+            players.clear()
+            openGames.remove(this)
+            HandlerList.unregisterAll(eventListener)
             Bukkit.unloadWorld(world, false)
             File("${UnPure.mapsRoot}/$targetGamePath").deleteRecursively()
         }.start()
     }
 
+    fun humanWin() {
+        broadcast(Messages.str("game.coin"), humans)
+        humans.forEach {
+            Cosmetics.winEffect(it)
+            DataOperations.addOneToTable(it, StatisticsData.tableHumanWins)
+            DataOperations.addOneToTable(it, CosmeticsData.tableCoins)
+        }
+        infected.forEach { DataOperations.addOneToTable(it, StatisticsData.tableInfectedLosses) }
+        stop()
+    }
+
+    fun infectedWin() {
+        infected.forEach { DataOperations.addOneToTable(it, StatisticsData.tableInfectedWins) }
+        stop()
+    }
+
     fun infectPlayer(player: Player, killer: Player? = null) {
-        if (infected.contains(player)) {
-            broadcast(Config.str("game.player.died", arrayOf(player.name)))
-            player.teleport(world.spawnLocation)
-            GameData.addOneToTable(player, GameData.tableDeaths)
+        if (infected.contains(player)) {  // Already infected
+            DataOperations.addOneToTable(player, StatisticsData.tableDeaths)
+            initInfectedState(player)
+            player.gameMode = GameMode.SURVIVAL
             return
         }
         if (!humans.contains(player)) { return }  // Just to be safe.
-        GameData.addOneToTable(player, GameData.tableDeaths)
+
+        // Human got killed here
+        DataOperations.addOneToTable(player, StatisticsData.tableDeaths)
 
         if (killer != null) {
-            broadcast(Config.str("game.player.infected", arrayOf(player.name, killer.name)))
-            GameData.addOneToTable(killer, GameData.tableKills)
+            broadcast(Cosmetics.killMessage(killer, player), players)
+            DataOperations.addOneToTable(killer, StatisticsData.tableKills)
         } else {
-            broadcast(Config.str("game.player.self-infected", arrayOf(player.name)))
+            broadcast(Messages.str("game.player.self-infected", arrayOf(player.name)), players)
         }
 
+        Cosmetics.deathEffect(player, player.location)
         humans.remove(player)
         infected.add(player)
+        title(Messages.str("game.title.infection"), Messages.str("game.subtitle.infected"), mutableListOf(player))
 
         // Game ends when no humans left
         if (humans.isEmpty()) {
+            if (killer is Player) Cosmetics.winEffect(killer)
+            broadcast(Messages.str("game.status.end.humans-dead"), players)
+            lastHuman = player
             player.gameMode = GameMode.SPECTATOR
-            if (killer is Player) Cosmetics.winEffect(killer, player.location)
-            Cosmetics.deathEffect(player, player.location)
-            broadcast(Config.str("game.status.end.humans-dead"))
-            infected.forEach { GameData.addOneToTable(it, GameData.tableInfectedWins) }
-            stop()
+            infectedWin()
         } else {
             initInfectedState(player)
+            player.gameMode = GameMode.SURVIVAL
         }
     }
 
     fun removePlayer(player: Player) {
         if (players.contains(player)) { players.remove(player) }
+        resetPlayer(player)
+        UnPure.teleportToLobby(player)
+        broadcast(Messages.str("game.status.player-left", arrayOf(player.name)), players)
 
         if (humans.contains(player)) {
             humans.remove(player)
             if (humans.isEmpty()) {
-                broadcast(Config.str("game.status.end.last-human-left"))
-                stop()
+                broadcast(Messages.str("game.status.end.last-human-left"), players)
+                infectedWin()
             }
         }
         if (infected.contains(player)) {
             infected.remove(player)
             if (infected.isEmpty()) {
-                broadcast(Config.str("game.status.end.last-infected-left"))
-                stop()
+                broadcast(Messages.str("game.status.end.last-infected-left"), players)
+                humanWin()
             }
         }
-
     }
 
-    private fun startGracePeriod() {
+    fun enableSpectate(player: Player, target: Player) {
+        spectators.add(player)
+        player.gameMode = GameMode.SPECTATOR
+        player.teleport(target.location)
+        TabAPI.getInstance().getPlayer(player.uniqueId)?.let { TabAPI.getInstance().tabListFormatManager?.setPrefix(it, "&7&l&oSpectator &r&7&o") }
+        TabAPI.getInstance().getPlayer(player.uniqueId)?.let { TabAPI.getInstance().nameTagManager?.setPrefix(it, "&7&l&oSpectator &r&7&o") }
+        TabAPI.getInstance().getPlayer(player.uniqueId)?.setTemporaryGroup("afk")  // Spectators get sorted at the bottom
+        // Show game players and hide outside players
+        Bukkit.getOnlinePlayers().forEach {
+            if (players.contains(it)) player.showPlayer(UnPure.instance, it)
+            else player.hidePlayer(UnPure.instance, it)
+        }
+        players.forEach { it.showPlayer(UnPure.instance, player) }
+    }
+
+    fun disableSpectate(player: Player) {
+        spectators.remove(player)
+        UnPure.teleportToLobby(player)
+        TabAPI.getInstance().getPlayer(player.uniqueId)?.let { TabAPI.getInstance().tabListFormatManager?.setPrefix(it, null) }
+        TabAPI.getInstance().getPlayer(player.uniqueId)?.let { TabAPI.getInstance().nameTagManager?.setPrefix(it, null) }
+        TabAPI.getInstance().getPlayer(player.uniqueId)?.setTemporaryGroup(null)
+        // Hide game players (showing outside players happens in GlobalEvents when changing worlds)
+        players.forEach { it.hidePlayer(UnPure.instance, player) }
+    }
+
+    private fun gracePeriod() {
         gameTimer = UnPure.crimson.effectBuilder().repeatUntil({ elapsedTimeTicks > graceTimeSeconds * 20 }, timerTickDelay) {
             val remaining = graceTimeSeconds - elapsedTimeSeconds
-            bossbar.setTitle(Config.str("game.bossbar.grace", arrayOf(remaining.toString())))
+            bossbar.setTitle(Messages.str("game.bossbar.grace", arrayOf(remaining.toString())))
             bossbar.progress = Math.max(0.0, 1 - elapsedTimeTicks / (graceTimeSeconds * 20.0))
             gameTick()
         }.run {
-            infected.forEach { initInfectedState(it, startInSpectator = false) }
-            infected.forEach {
-                it.teleport(world.spawnLocation)
-                it.gameMode = GameMode.SURVIVAL
-            }
-            broadcast(Config.str("game.status.grace-over"))
-            bossbar.color = BarColor.YELLOW
-            startGamePeriod()
+            gamePeriod()
         }.start()
     }
 
-    private fun startGamePeriod() {
-        var humsent = false
+    private fun gamePeriod() {
         gameTimer.abort()  // Make sure that the grace period is actually stopped for sure
+
+        infected.forEach {
+            initInfectedState(it)
+            it.gameMode = GameMode.SURVIVAL
+        }
+        spectators.forEach {
+            if (it.world == UnPure.waitingArea) it.teleport(world.spawnLocation.add(0.5, 0.0, 0.5))
+        }
+
+        broadcast(Messages.str("game.status.grace-over"), players)
+        bossbar.color = BarColor.YELLOW
+
         gameTimer = UnPure.crimson.effectBuilder().repeatUntil({ elapsedTimeTicks > (gameTimeSeconds * 20) + (graceTimeSeconds * 20) }, timerTickDelay) {
             val remaining = gameTimeSeconds - elapsedTimeSeconds + graceTimeSeconds
-            if (remaining == lastMinuteEffectsAtSecond) {
+            if (remaining == lastMinuteEffectsAtSecond && !lastMinute) {
+                lastMinute = true
+                broadcast(Messages.str("game.status.last-minute"), players)
                 bossbar.color = BarColor.RED
-                if (!humsent) {
-                    humans.forEach {
-                        it.addPotionEffect(PotionEffect(PotionEffectType.GLOWING, PotionEffect.INFINITE_DURATION, 0))
-                        broadcast(Config.str("game.status.last-minute"))
-                    }
+                players.forEach {
+                    it.addPotionEffect(PotionEffect(PotionEffectType.GLOWING, PotionEffect.INFINITE_DURATION, 0))
                 }
-                humsent = true
             }
-            bossbar.setTitle(Config.str("game.bossbar.game-progress", arrayOf(remaining.toString())))
-            bossbar.progress = 1 - (elapsedTimeTicks - (graceTimeSeconds * 20.0)) / (gameTimeSeconds * 20.0)
-
+            bossbar.setTitle(Messages.str("game.bossbar.game-progress", arrayOf(remaining.toString())))
+            bossbar.progress = Math.max(0.0, 1 - (elapsedTimeTicks - (graceTimeSeconds * 20.0)) / (gameTimeSeconds * 20.0))
             gameTick()
         }.run {
-            broadcast(Config.str("game.status.end.timeout"))
-            humans.forEach { GameData.addOneToTable(it, GameData.tableHumanWins) }
-            infected.forEach { GameData.addOneToTable(it, GameData.tableInfectedLosses) }
-            stop()
+            broadcast(Messages.str("game.status.end.timeout"), players)
+            humanWin()
         }.start()
 
         heartbeatTask = startHeartbeatTask()
@@ -303,43 +388,37 @@ class Game (private val gameID: String, val gameCreator: String) {
 
     // Every timer tick
     private fun gameTick() {
-        actionbar(Config.str("game.actionbar.infected"), infected)
-        actionbar(Config.str("game.actionbar.human"), humans)
+        actionbar(Messages.str("game.actionbar.infected"), infected)
+        actionbar(Messages.str("game.actionbar.human"), humans)
 
         elapsedTimeTicks += timerTickDelay
         elapsedTimeSeconds = elapsedTimeTicks / 20
         infected.forEach { Cosmetics.trail(it) }
     }
 
-    private fun resetPlayer(player: Player, skipTeleport: Boolean = false) {
-        player.inventory.clear()
-        player.health = 20.0
-        player.saturation = 20.0f
-        player.foodLevel = 20
-        player.exp = 0.0f
-        player.removePotionEffect(PotionEffectType.GLOWING)
-        player.removePotionEffect(PotionEffectType.ABSORPTION)
-        if (!skipTeleport) { player.teleport(world.spawnLocation) }
-    }
-
-    private fun initHumanState(player: Player, startInSpectator: Boolean = false) {
+    private fun initHumanState(player: Player) {
         resetPlayer(player)
-        if (startInSpectator) { player.gameMode = GameMode.SPECTATOR }
-        else { player.gameMode = GameMode.SURVIVAL }
+        player.teleport(world.spawnLocation.add(0.5, 0.0, 0.5))
         player.inventory.addItem(ItemStack(Material.WOODEN_SWORD))
         player.inventory.addItem(ItemStack(Material.WOODEN_PICKAXE))
         player.inventory.addItem(ItemStack(Material.WOODEN_AXE))
         player.inventory.addItem(ItemStack(Material.WOODEN_SHOVEL))
         player.inventory.addItem(ItemStack(Material.GOLDEN_APPLE))
+        TabAPI.getInstance().getPlayer(player.uniqueId)?.let { TabAPI.getInstance().tabListFormatManager?.setPrefix(it, "&e&lHuman &r&e") }
+        TabAPI.getInstance().getPlayer(player.uniqueId)?.let { TabAPI.getInstance().nameTagManager?.setPrefix(it, "&e&lHuman &r&e") }
+        TabAPI.getInstance().getPlayer(player.uniqueId)?.setTemporaryGroup("human")
     }
 
-    private fun initInfectedState(player: Player, startInSpectator: Boolean = false) {
+    private fun initInfectedState(player: Player) {
         resetPlayer(player)
+        player.teleport(world.spawnLocation.add(0.5, 0.0, 0.5))
         player.addPotionEffect(PotionEffect(PotionEffectType.GLOWING, PotionEffect.INFINITE_DURATION, 0))
         player.inventory.addItem(ItemStack(Material.WOODEN_AXE))
         player.inventory.addItem(ItemStack(Material.STONE_PICKAXE))
         Cosmetics.infectedOutfit(player)
-        if (startInSpectator) { player.gameMode = GameMode.SPECTATOR }
+        TabAPI.getInstance().getPlayer(player.uniqueId)?.let { TabAPI.getInstance().tabListFormatManager?.setPrefix(it, "&2&lInfected &r&2") }
+        TabAPI.getInstance().getPlayer(player.uniqueId)?.let { TabAPI.getInstance().nameTagManager?.setPrefix(it, "&2&lInfected &r&2") }
+        TabAPI.getInstance().getPlayer(player.uniqueId)?.setTemporaryGroup("infected")
     }
 
     private var heartbeatTask: Effect? = null
@@ -402,7 +481,7 @@ class Game (private val gameID: String, val gameCreator: String) {
                     }
                 } else {
                     val notint: WorldBorder = UnPure.instance.getServer().createWorldBorder()
-                    notint.center = world.spawnLocation
+                    notint.center = world.spawnLocation.add(0.5, 0.0, 0.5)
                     notint.size = 1024.0
                     notint.warningDistance = 0
 

@@ -64,6 +64,8 @@ class Effect(val crimson: Crimson, val plugin: JavaPlugin) {
     }
 
     fun start(): Effect {
+        if (!plugin.isEnabled) return this
+
         if (!crimson.runningEffects.contains(this)) {
             crimson.runningEffects.add(this)
         }

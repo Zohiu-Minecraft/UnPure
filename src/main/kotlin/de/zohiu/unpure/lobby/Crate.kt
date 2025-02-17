@@ -1,13 +1,15 @@
 package de.zohiu.unpure.lobby
 
 import de.zohiu.unpure.UnPure
+import de.zohiu.unpure.game.*
+import de.zohiu.unpure.data.CosmeticsData
+import de.zohiu.unpure.data.DataOperations
+import de.zohiu.unpure.data.StatisticsData
 import org.bukkit.*
-import org.bukkit.block.Block
-import org.bukkit.block.Chest
 import org.bukkit.block.data.BlockData
-import org.bukkit.block.data.Directional
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Firework
+import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
@@ -25,8 +27,16 @@ class Crate : Listener {
         if (event.clickedBlock == null) return
         if (event.action != Action.RIGHT_CLICK_BLOCK) return
         if (event.clickedBlock!!.type != Material.ENDER_CHEST) return
-
         event.isCancelled = true
+
+        val coins = DataOperations.getTableInt(event.player, CosmeticsData.tableCoins)
+
+        val possibilities = getPossibleCosmeticWins(event.player)
+        if (possibilities.size == 0) {
+            event.player.sendMessage("You already unlocked all available cosmetics.")
+            return
+        }
+
         if (opening) {
             event.player.sendMessage("The crate is already being opened.")
             return
@@ -97,13 +107,20 @@ class Crate : Listener {
                         ))
                     }
                     world.spawnParticle(Particle.SMOKE, loc.clone().add(0.0, 1.0, 0.0), 2, 0.0, 0.0, 0.0, 0.1) // Amount, offset, speed
-                    block.type = Material.POLISHED_BLACKSTONE_BRICKS
+                    if (Random.nextInt(0, 2) == 0) block.type = Material.POLISHED_BLACKSTONE_BRICKS
+                    else if (Random.nextInt(0, 2) == 0) block.type = Material.POLISHED_BLACKSTONE
+                    else if (Random.nextInt(0, 2) == 0) block.type = Material.CRACKED_POLISHED_BLACKSTONE_BRICKS
+                    else block.type = Material.CHISELED_POLISHED_BLACKSTONE
                 }
             }
             
             index += 0.1
             intIndex++
         }.run {
+            // GIVE REWARD
+            val rarity = giveCrateReward(event.player, possibilities)
+            // Use rarity to change effect here.
+
             // Firework
             val builder = FireworkEffect.builder()
             builder.with(FireworkEffect.Type.BALL).withFlicker().withTrail()
@@ -122,6 +139,7 @@ class Crate : Listener {
             val fw2 = crateLoc.world!!.spawnEntity(crateLoc, EntityType.FIREWORK_ROCKET) as Firework
             fw2.fireworkMeta = fwm
             world.playSound(crateLoc, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.5f, 1f)
+
         }.wait(10).run {
             world.playSound(crateLoc, Sound.BLOCK_NOTE_BLOCK_HAT, 1f, 1f)
             world.playSound(crateLoc, Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 1f)
@@ -148,5 +166,35 @@ class Crate : Listener {
             }
             removeeffect.start()
         }.start()
+    }
+
+    private fun getPossibleCosmeticWins(player: Player): MutableList<CosmeticType> {
+        val unlockedOutfits = CosmeticsData.getAllCosmetics(player)
+        val possibilities = (
+                DeathEffect.entries
+                        + WinEffect.entries
+                        + InfectedOutfit.entries
+                        + Trail.entries
+                        + KillMessage.entries
+                ).toMutableList()
+        possibilities.removeIf { unlockedOutfits.contains(it) }
+        return possibilities as MutableList<CosmeticType>
+    }
+
+    private fun giveCrateReward(player: Player, possibilities: MutableList<CosmeticType>): Rarity {
+        // Adjust for rarity
+        val adjustedPossibilites: MutableList<CosmeticType> = mutableListOf()
+        possibilities.forEach { cosmetic ->
+            repeat((cosmetic.rarity.percentage * 100).toInt()) {
+                adjustedPossibilites.add(cosmetic)
+            }
+        }
+
+        // unlock chosen choice
+        val choice = adjustedPossibilites.shuffled()[0]
+        CosmeticsData.unlockCosmetic(player, choice)
+        DataOperations.addOneToTable(player, StatisticsData.tableCratesOpened)
+        player.sendMessage("You won a ${choice.javaClass}: ${choice.name}")
+        return choice.rarity
     }
 }

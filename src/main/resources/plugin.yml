@@ -3,6 +3,8 @@ author: Zohiu
 description: Infected vs. Humans
 version: '1.0'
 main: de.zohiu.unpure.UnPure
+depend: ["TAB"]
+softdepend: ["PlaceholderAPI"]
 api-version: '1.21'
 commands:
   loadmap:
@@ -13,5 +15,11 @@ commands:
     usage: /gotomap
   start:
     usage: /start
+  leave:
+    usage: /leave
+  spectate:
+    usage: /spectate
   createtemplate:
     usage: /createtemplate
+  afk:
+    usage: /afk
