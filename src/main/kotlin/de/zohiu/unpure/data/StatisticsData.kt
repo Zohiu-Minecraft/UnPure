@@ -11,6 +11,10 @@ class StatisticsData {
             CacheLevel.PERIODIC, 1000, 20 * 60 * 5
         ) { Game.openGames.size == 0 }
 
+        fun commitData() {
+            database.asyncCommitCache()
+        }
+
         // Ingame stats
         val tableHumanWins = database.getTable("human_wins")
         val tableInfectedWins = database.getTable("infected_wins")

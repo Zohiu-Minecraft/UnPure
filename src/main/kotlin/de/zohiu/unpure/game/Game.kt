@@ -49,12 +49,12 @@ class Game (private val gameID: String, val host: Player) {
         }
     }
 
-    val timerTickDelay = 5
+    val timerTickDelay = 5L
     val graceTimeSeconds = 60
     val gameTimeSeconds = 300
     val lastMinuteEffectsAtSecond = 30
     var elapsedTimeSeconds = 0
-    var elapsedTimeTicks = 0
+    var elapsedTimeTicks = 0L
 
     var starting = false
     var inProgress = false;
@@ -210,14 +210,14 @@ class Game (private val gameID: String, val host: Player) {
     fun stop() {
         if (!inProgress) { return }
         inProgress = false
-        heartbeatTask?.abort()
+        heartbeatTask?.destroy()
         players.forEach {
             bossbar.removePlayer(it)
             if (it != lastHuman) resetPlayer(it)
         }
         bossbar.removeAll()
-        gameTimer.abort()
-        StatisticsData.database.commitCache()
+        gameTimer.destroy()
+        StatisticsData.commitData()
 
         // Wait a bit before ending the game
         UnPure.crimson.effectBuilder().wait(200).run {
@@ -352,7 +352,7 @@ class Game (private val gameID: String, val host: Player) {
     }
 
     private fun gamePeriod() {
-        gameTimer.abort()  // Make sure that the grace period is actually stopped for sure
+        gameTimer.destroy()  // Make sure that the grace period is actually stopped for sure
 
         infected.forEach {
             initInfectedState(it)
@@ -392,7 +392,7 @@ class Game (private val gameID: String, val host: Player) {
         actionbar(Messages.str("game.actionbar.human"), humans)
 
         elapsedTimeTicks += timerTickDelay
-        elapsedTimeSeconds = elapsedTimeTicks / 20
+        elapsedTimeSeconds = (elapsedTimeTicks / 20L).toInt()
         infected.forEach { Cosmetics.trail(it) }
     }
 

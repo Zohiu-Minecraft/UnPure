@@ -1,6 +1,5 @@
 package de.zohiu.crimson
 
-import org.bukkit.Bukkit
 import org.bukkit.event.HandlerList
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
@@ -22,7 +21,7 @@ class Crimson(val plugin: JavaPlugin) {
         return Config(this, name)
     }
 
-    fun getDatabase(name: String, cacheLevel: CacheLevel, maxCacheSize: Int = 500, period: Int? = null,
+    fun getDatabase(name: String, cacheLevel: CacheLevel, maxCacheSize: Int = 500, period: Long? = null,
                     periodCondition: () -> Boolean = { true }): Database {
         return Database(this, name, cacheLevel, maxCacheSize, period, periodCondition)
     }
@@ -35,7 +34,7 @@ class Crimson(val plugin: JavaPlugin) {
     fun cleanup() {
         // Unregister all events to make /reload work
         HandlerList.unregisterAll(plugin)
-        runningEffects.toMutableList().forEach { it.abort() }
+        runningEffects.toMutableList().forEach { it.destroy() }
         databaseConnections.toMutableList().forEach { it.close() }
     }
 }

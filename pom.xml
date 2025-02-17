@@ -69,6 +69,10 @@
 
     <repositories>
         <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+        <repository>
             <id>spigotmc-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
         </repository>
@@ -130,6 +134,25 @@
             <artifactId>TAB-API</artifactId>
             <version>5.0.7</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-core</artifactId>
+            <version>1.10.0</version>
+        </dependency>
+
+        <!-- Jackson Databind (Core) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.18.1</version> <!-- Use the latest stable version -->
+        </dependency>
+
+        <!-- Jackson Kotlin Module -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-kotlin</artifactId>
+            <version>2.18.1</version> <!-- Use the latest stable version -->
         </dependency>
     </dependencies>
 </project>

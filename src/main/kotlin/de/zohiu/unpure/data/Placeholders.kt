@@ -1,7 +1,6 @@
 package de.zohiu.unpure.data
 
 import de.zohiu.unpure.UnPure
-import de.zohiu.unpure.UnPure.Companion.playtimeCounter
 import de.zohiu.unpure.game.Game
 import me.clip.placeholderapi.expansion.PlaceholderExpansion
 import org.bukkit.entity.Player
@@ -64,7 +63,9 @@ class Placeholders : PlaceholderExpansion() {
             "joins" -> { DataOperations.getTableLong(player, StatisticsData.tableJoins) }
             "crates_opened" -> { DataOperations.getTableLong(player, StatisticsData.tableCratesOpened) }
             "playtime" -> {
-                formatPlaytime(DataOperations.getTableLong(player, StatisticsData.tablePlaytime) + System.currentTimeMillis() - UnPure.playtimeCounter[player]!!)
+                if (!UnPure.playtimeCounter.contains(player)) 0
+                else formatPlaytime(DataOperations.getTableLong(player, StatisticsData.tablePlaytime)
+                        + System.currentTimeMillis() - UnPure.playtimeCounter[player]!!)
             }
             "first_join" -> {
                 toTimestamp(DataOperations.getTableLong(player, StatisticsData.tableFirstJoin) + player.playerTimeOffset)

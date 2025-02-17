@@ -194,7 +194,7 @@ class Crate : Listener {
         val choice = adjustedPossibilites.shuffled()[0]
         CosmeticsData.unlockCosmetic(player, choice)
         DataOperations.addOneToTable(player, StatisticsData.tableCratesOpened)
-        player.sendMessage("You won a ${choice.javaClass}: ${choice.name}")
+        player.sendMessage("You won a ${choice.javaClass.name}: ${choice.name}")
         return choice.rarity
     }
 }
