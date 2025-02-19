@@ -23,3 +23,5 @@ commands:
     usage: /createtemplate
   afk:
     usage: /afk
+  cosmetics:
+    usage: /cosmetics

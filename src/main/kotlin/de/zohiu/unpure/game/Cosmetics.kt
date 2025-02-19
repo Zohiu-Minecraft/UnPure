@@ -1,73 +1,70 @@
 package de.zohiu.unpure.game
 
-import de.zohiu.crimson.Table
 import de.zohiu.unpure.data.CosmeticsData
-import org.bukkit.Bukkit
-import org.bukkit.ChatColor
-import org.bukkit.Color
-import org.bukkit.FireworkEffect
-import org.bukkit.Location
-import org.bukkit.Material
+import org.bukkit.*
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Firework
 import org.bukkit.entity.Player
 import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemStack
+import java.io.Serializable
 
-interface CosmeticType {
+
+interface CosmeticType : Serializable {
+    val type: String
     val name: String
     val rarity: Rarity
-    val unlockedTable: Table
-    val equippedTable: Table
+    val description: String
 }
 
 enum class Rarity(val percentage: Double) {
-    COMMON(0.6), RARE(0.2), EPIC(0.15), LEGENDARY(0.05);
+    DEFAULT(0.0), COMMON(0.6), RARE(0.2), EPIC(0.15), LEGENDARY(0.05);
 }
 
-enum class DeathEffect(override val rarity: Rarity) : CosmeticType {
-    STAR(Rarity.COMMON);
+enum class DeathEffect(override val rarity: Rarity, override val description: String) : CosmeticType {
+    DEFAULT(Rarity.DEFAULT, "No special effects."),
+    STAR(Rarity.COMMON, "Purple and black star-shaped firework.");
 
-    override val equippedTable: Table
-        get() = CosmeticsData.tableDeathEffectEquipped
-    override val unlockedTable: Table
-        get() = CosmeticsData.tableDeathEffects
+    override val type: String = this::class.simpleName!!
 }
 
-enum class WinEffect(override val rarity: Rarity) : CosmeticType {
-    STAR(Rarity.COMMON);
+enum class WinEffect(override val rarity: Rarity, override val description: String) : CosmeticType {
+    DEFAULT(Rarity.DEFAULT, "No special effects."),
+    STAR(Rarity.COMMON, "Purple and black star-shaped firework.");
 
-    override val equippedTable: Table
-        get() = CosmeticsData.tableWinEffectEquipped
-    override val unlockedTable: Table
-        get() = CosmeticsData.tableWinEffects
+    override val type: String = this::class.simpleName!!
 }
 
-enum class InfectedOutfit(override val rarity: Rarity) : CosmeticType {
-    SKELETON(Rarity.COMMON),
+enum class InfectedOutfit(override val rarity: Rarity, override val description: String) : CosmeticType {
+    DEFAULT(Rarity.DEFAULT, "Dead or alive?"),
+    SKELETON(Rarity.COMMON, "Forgot their bow at home."),
+    WITHER_SKELETON(Rarity.COMMON, "Tall and spooky."),
+    CREEPER(Rarity.COMMON, "Ready to explode your future!"),
 
-    VILLAGER(Rarity.RARE), TURTLE(Rarity.RARE),
+    TOAD(Rarity.RARE, "Please don't sue us, Nintendo ;-;"),
+    VILLAGER(Rarity.RARE, "Is only here for the free emeralds."),
+    TURTLE(Rarity.RARE, "Too cute to die <3"),
 
-    CLOWN(Rarity.EPIC),
+    GREENPIGISBACON(Rarity.EPIC, "&kOwns this game."),
+    CLOWN(Rarity.EPIC, "The humans will die of laughing."),
+    ZOHIU(Rarity.EPIC, "<Unfair advantage>"),
 
-    GREENPIGISBACON(Rarity.LEGENDARY), RACER(Rarity.LEGENDARY), ZOHIU(Rarity.LEGENDARY);
+    PIGLIN(Rarity.LEGENDARY, "Ran out of gold. Now deals in human organs."),
+    RACER(Rarity.LEGENDARY, "I.. am.. speed!"),
+    ENDER_DRAGON(Rarity.LEGENDARY, "Has fly hacks (not really).");
 
-    override val equippedTable: Table
-        get() = CosmeticsData.tableOutfitsEquipped
-    override val unlockedTable: Table
-        get() = CosmeticsData.tableOutfits
+    override val type: String = this::class.simpleName!!
 }
 
-enum class Trail(override val rarity: Rarity) : CosmeticType {
-    FIRE(Rarity.COMMON);
+enum class Trail(override val rarity: Rarity, override val description: String) : CosmeticType {
+    DEFAULT(Rarity.DEFAULT, "No trail."),
+    FIRE(Rarity.COMMON, "That's hot!");
 
-    override val equippedTable: Table
-        get() = CosmeticsData.tableTrailEquipped
-    override val unlockedTable: Table
-        get() = CosmeticsData.tableTrails
+    override val type: String = this::class.simpleName!!
 }
 
-enum class KillMessage(override val rarity: Rarity, val template: String) : CosmeticType {
+enum class KillMessage(override val rarity: Rarity, override val description: String) : CosmeticType {
+    DEFAULT(Rarity.DEFAULT, "&a%victim%&7 has been killed by &a%attacker%&7!"),
     HUNGRY(Rarity.COMMON, "&a%victim%&7 had their brains devoured by &a%attacker%&7!"),
     RAGE_QUIT(Rarity.COMMON, "&a%victim%&7 was Alt-F4'ed by &a%attacker%&7!"),
 
@@ -82,10 +79,7 @@ enum class KillMessage(override val rarity: Rarity, val template: String) : Cosm
 
     GTA_VI(Rarity.LEGENDARY, "&a%victim%&7 was killed by &a%attacker%&7 before the release of GTA VI!");
 
-    override val equippedTable: Table
-        get() = CosmeticsData.tableKillMessageEquipped
-    override val unlockedTable: Table
-        get() = CosmeticsData.tableKillMessages
+    override val type: String = this::class.simpleName!!
 }
 
 
@@ -93,7 +87,7 @@ class Cosmetics {
     companion object {
         fun winEffect(player: Player) {
             val location = player.location
-            var equipped = CosmeticsData.getEquippedCosmetic(player, CosmeticsData.tableWinEffectEquipped)
+            var equipped = CosmeticsData.getEquippedCosmetic(player, WinEffect::class.simpleName!!, WinEffect.DEFAULT)
 
             val builder = FireworkEffect.builder()
             builder.with(FireworkEffect.Type.STAR).withFlicker().withTrail()
@@ -114,7 +108,7 @@ class Cosmetics {
         }
 
         fun deathEffect(player: Player, location: Location) {
-            var equipped = CosmeticsData.getEquippedCosmetic(player, CosmeticsData.tableDeathEffectEquipped)
+            var equipped = CosmeticsData.getEquippedCosmetic(player, DeathEffect::class.simpleName!!, DeathEffect.DEFAULT)
 
             val builder = FireworkEffect.builder()
             builder.with(FireworkEffect.Type.STAR).withFlicker().withTrail()
@@ -135,16 +129,16 @@ class Cosmetics {
         }
 
         fun infectedOutfit(player: Player) {
-            var equipped = CosmeticsData.getEquippedCosmetic(player, CosmeticsData.tableOutfitsEquipped)
-            if (equipped == null) {
-                player.inventory.setItem(EquipmentSlot.FEET, ItemStack(Material.LEATHER_BOOTS))
-                player.inventory.setItem(EquipmentSlot.LEGS, ItemStack(Material.LEATHER_LEGGINGS))
-                player.inventory.setItem(EquipmentSlot.CHEST, ItemStack(Material.LEATHER_CHESTPLATE))
-                player.inventory.setItem(EquipmentSlot.HEAD, ItemStack(Material.ZOMBIE_HEAD))
-                return
-            }
+            val equipped = CosmeticsData.getEquippedCosmetic(player, InfectedOutfit::class.simpleName!!, InfectedOutfit.DEFAULT)
 
             when (equipped as InfectedOutfit) {
+                InfectedOutfit.DEFAULT -> {
+                    player.inventory.setItem(EquipmentSlot.FEET, ItemStack(Material.LEATHER_BOOTS))
+                    player.inventory.setItem(EquipmentSlot.LEGS, ItemStack(Material.LEATHER_LEGGINGS))
+                    player.inventory.setItem(EquipmentSlot.CHEST, ItemStack(Material.LEATHER_CHESTPLATE))
+                    player.inventory.setItem(EquipmentSlot.HEAD, ItemStack(Material.ZOMBIE_HEAD))
+                }
+
                 else -> {
 
                 }
@@ -152,18 +146,13 @@ class Cosmetics {
         }
 
         fun trail(player: Player) {
-            var equipped = CosmeticsData.getEquippedCosmetic(player, CosmeticsData.tableTrailEquipped)
+            var equipped = CosmeticsData.getEquippedCosmetic(player, Trail::class.simpleName!!, Trail.DEFAULT)
         }
 
         fun killMessage(attacker: Player, victim: Player): String {
-            val equipped: CosmeticType? = CosmeticsData.getEquippedCosmetic(attacker, CosmeticsData.tableKillMessageEquipped)
-            val msg = if (equipped == null) {
-                "&a%victim%&7 &7was killed by &a&a%attacker%&7"
+            val equipped: CosmeticType = CosmeticsData.getEquippedCosmetic(attacker, KillMessage::class.simpleName!!, KillMessage.DEFAULT)
+            val msg = (equipped as KillMessage).description
                     .replace("%victim%", victim.name).replace("&a%attacker%&7", attacker.name)
-            } else {
-                (equipped as KillMessage).template
-                    .replace("%victim%", victim.name).replace("&a%attacker%&7", attacker.name)
-            }
             return ChatColor.translateAlternateColorCodes('&', msg)
         }
     }

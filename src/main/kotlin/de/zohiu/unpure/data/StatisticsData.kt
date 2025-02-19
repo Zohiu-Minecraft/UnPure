@@ -8,7 +8,7 @@ class StatisticsData {
     companion object {
         // Write after game ends and when server stops or every 5 minutes if no game is running
         val database = UnPure.crimson.getDatabase("players",
-            CacheLevel.PERIODIC, 1000, 20 * 60 * 5
+            CacheLevel.WRITE_PERIODIC, 1000, 20 * 60 * 5
         ) { Game.openGames.size == 0 }
 
         fun commitData() {

@@ -8,6 +8,7 @@ import de.zohiu.unpure.commands.game.Spectate
 import de.zohiu.unpure.commands.game.SpectateTabComplete
 import de.zohiu.unpure.commands.game.Start
 import de.zohiu.unpure.commands.general.AFK
+import de.zohiu.unpure.commands.general.Cosmetics
 import de.zohiu.unpure.commands.worlds.*
 import de.zohiu.unpure.data.DataOperations
 import de.zohiu.unpure.data.Placeholders
@@ -87,6 +88,7 @@ class UnPure : JavaPlugin() {
         this.getCommand("start")?.setExecutor(Start())
         this.getCommand("leave")?.setExecutor(Leave())
         this.getCommand("afk")?.setExecutor(AFK())
+        this.getCommand("cosmetics")?.setExecutor(Cosmetics())
 
 
         // Start playtime new in case this is a reload

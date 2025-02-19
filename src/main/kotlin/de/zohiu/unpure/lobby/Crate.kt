@@ -1,10 +1,12 @@
 package de.zohiu.unpure.lobby
 
 import de.zohiu.unpure.UnPure
-import de.zohiu.unpure.game.*
 import de.zohiu.unpure.data.CosmeticsData
+import de.zohiu.unpure.data.CosmeticsData.Companion.getAllCosmetics
 import de.zohiu.unpure.data.DataOperations
 import de.zohiu.unpure.data.StatisticsData
+import de.zohiu.unpure.game.CosmeticType
+import de.zohiu.unpure.game.Rarity
 import org.bukkit.*
 import org.bukkit.block.data.BlockData
 import org.bukkit.entity.EntityType
@@ -169,16 +171,10 @@ class Crate : Listener {
     }
 
     private fun getPossibleCosmeticWins(player: Player): MutableList<CosmeticType> {
-        val unlockedOutfits = CosmeticsData.getAllCosmetics(player)
-        val possibilities = (
-                DeathEffect.entries
-                        + WinEffect.entries
-                        + InfectedOutfit.entries
-                        + Trail.entries
-                        + KillMessage.entries
-                ).toMutableList()
-        possibilities.removeIf { unlockedOutfits.contains(it) }
-        return possibilities as MutableList<CosmeticType>
+        val unlockedOutfits = CosmeticsData.getAllUnlockedCosmetics(player)
+        val allCosmetics: MutableList<CosmeticType> = getAllCosmetics()
+        allCosmetics.removeIf { unlockedOutfits.contains(it) }
+        return allCosmetics
     }
 
     private fun giveCrateReward(player: Player, possibilities: MutableList<CosmeticType>): Rarity {

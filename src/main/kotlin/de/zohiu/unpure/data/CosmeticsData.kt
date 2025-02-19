@@ -1,9 +1,8 @@
 package de.zohiu.unpure.data
 
 import de.zohiu.crimson.CacheLevel
-import de.zohiu.crimson.Table
 import de.zohiu.unpure.UnPure
-import de.zohiu.unpure.game.CosmeticType
+import de.zohiu.unpure.game.*
 import org.bukkit.entity.Player
 
 class CosmeticsData {
@@ -12,54 +11,42 @@ class CosmeticsData {
 
         val tableCoins = database.getTable("coins")
 
-        val tableDeathEffectEquipped = database.getTable("death_effect_equipped")
-        val tableDeathEffects = database.getTable("death_effects")
-
-        val tableWinEffectEquipped = database.getTable("win_effect_equipped")
-        val tableWinEffects = database.getTable("win_effects")
-
-        val tableOutfitsEquipped = database.getTable("outfits_equipped")
-        val tableOutfits = database.getTable("outfits")
-
-        val tableTrailEquipped = database.getTable("trail_equipped")
-        val tableTrails = database.getTable("trails")
-
-        val tableKillMessageEquipped = database.getTable("kill_message_equipped")
-        val tableKillMessages = database.getTable("kill_messages")
+        val unlockedCosmetics = database.getTable("unlocked")
+        val equippedCosmetics = database.getTable("equipped")
 
 
         fun unlockCosmetic(player: Player, cosmetic: CosmeticType) {
-            var list = cosmetic.unlockedTable.get(player.uniqueId.toString())
-            if (list == null) {
-                list = mutableListOf(cosmetic)
-                cosmetic.unlockedTable.set(player.uniqueId.toString(), list)
-                return
-            }
-            (list as MutableList<CosmeticType>).add(cosmetic)
-            cosmetic.unlockedTable.set(player.uniqueId.toString(), list)
+            unlockedCosmetics.set("${player.uniqueId}_${cosmetic::class.simpleName!!}_${cosmetic}", true)
         }
 
-        fun getCosmetics(player: Player, table: Table): MutableList<CosmeticType> {
-            var list: Any? = table.get(player.uniqueId.toString()) ?: return mutableListOf()
-            return list as MutableList<CosmeticType>
+        fun getAllCosmetics() : MutableList<CosmeticType> {
+            val allCosmetics: MutableList<CosmeticType> = mutableListOf()
+            allCosmetics.addAll(DeathEffect.values())
+            allCosmetics.addAll(WinEffect.values())
+            allCosmetics.addAll(InfectedOutfit.values())
+            allCosmetics.addAll(Trail.values())
+            allCosmetics.addAll(KillMessage.values())
+            return allCosmetics
         }
 
-        fun getAllCosmetics(player: Player): MutableList<CosmeticType> {
-            var list: MutableList<CosmeticType> = mutableListOf()
-            listOf(tableDeathEffects, tableWinEffects, tableOutfits, tableTrails, tableKillMessages).forEach {
-                val value = it.get(player.uniqueId.toString()) ?: return@forEach
-                list += value as MutableList<CosmeticType>
+        fun getUnlockedCosmetics(player: Player, cosmetics: List<CosmeticType>): MutableList<CosmeticType> {
+            val allCosmetics: MutableList<CosmeticType> = cosmetics.toMutableList()
+            allCosmetics.removeIf {
+                unlockedCosmetics.get("${player.uniqueId}_${it::class.simpleName!!}_${it}") == null && it.name != "DEFAULT"
             }
-            return list
+            return allCosmetics
+        }
+
+        fun getAllUnlockedCosmetics(player: Player): MutableList<CosmeticType> {
+            return getUnlockedCosmetics(player, getAllCosmetics())
         }
 
         fun equipCosmetic(player: Player, cosmetic: CosmeticType) {
-            cosmetic.equippedTable.set(player.uniqueId.toString(), cosmetic)
+            equippedCosmetics.set("${player.uniqueId}_${cosmetic.type}", cosmetic)
         }
 
-        fun getEquippedCosmetic(player: Player, table: Table): CosmeticType? {
-            val cosmetic = table.get(player.uniqueId.toString()) ?: return null
-            return cosmetic as CosmeticType
+        fun getEquippedCosmetic(player: Player, cosmeticType: String, default: CosmeticType): CosmeticType {
+            return (equippedCosmetics.get("${player.uniqueId}_${cosmeticType}") as CosmeticType?) ?: default
         }
     }
 }
